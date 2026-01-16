@@ -6,6 +6,8 @@ permalink: /all/
 
 # All Posts
 
+### [NWSL 2026 Schedule, Visualized -- 01/15/2026](2026schedule.html)
+
 ### [How real is Racing Louisville?: Part 2 -- 07/15/2025](louisvillept2.html)
 
 ### [How real is Racing Louisville?: Part 1 -- 07/15/2025](louisvillept1.html)
