@@ -1,0 +1,662 @@
+---
+title: "NWSL 2025-26 Offseason Tracker"
+output: html_document
+---
+
+##### [Back to home](https://ajsportstat.github.io/nwsl)
+
+##### Last Updated: 3/2/2026
+
+As two expansion teams prepare to start their inaugural campaigns, the 2025-26 NWSL offseason has been busy. With a [record](https://bsky.app/profile/tayvincent6.bsky.social/post/3mckzvvguq22v) number of college signings, some big departures, and a few massive trades, there's been almost too much going on. I created this offseason tracker to be able to see how busy each team has gotten compared to the others--I will continue to update it weekly until the start of the season in mid-March.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+```{r, include = FALSE}
+
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(rio)
+library(plotly)
+library(worldfootballR)
+library(showtext) 
+
+```
+
+```{r, include = FALSE}
+
+# read in data
+
+existing <- read_xlsx("nwsl25_players.xlsx", sheet = "Existing")
+existing <- existing %>% mutate(team_color = case_when(
+  Squad == "Angel City" ~ "#F1B1A5",
+  Squad == "Bay FC" ~ "#FF5049",
+  Squad == "Chicago Stars" ~ "#3AB5E8",
+  Squad == "Dash" ~ "#FF6900",
+  Squad == "Current" ~ "#62CBC9",
+  Squad == "Gotham FC" ~ "#A9F1FD",
+  Squad == "Courage" ~ "#B4A269",
+  Squad == "Pride" ~ "#61259E",
+  Squad == "Thorns" ~ "#99242B",
+  Squad == "Louisville" ~ "#C5B5F2",
+  Squad == "Wave" ~ "#FC1896",
+  Squad == "Reign" ~ "#2E407A",
+  Squad == "Royals" ~ "#FDB71A",
+  Squad == "Spirit" ~ "#000000",
+  Squad == "Legacy" ~ "#36E882",
+  Squad == "Summit" ~ "#20604E"
+  
+)) %>% mutate(Team_new = ifelse(Team_new=="Gotham", "Gotham FC", Team_new))
+
+new <- read_xlsx("nwsl25_players.xlsx", sheet = "New")
+new <- new %>% mutate(team_color = case_when(
+  Squad == "Angel City" ~ "#F1B1A5",
+  Squad == "Bay FC" ~ "#FF5049",
+  Squad == "Chicago Stars" ~ "#3AB5E8",
+  Squad == "Dash" ~ "#FF6900",
+  Squad == "Current" ~ "#62CBC9",
+  Squad == "Gotham FC" ~ "#A9F1FD",
+  Squad == "Courage" ~ "#B4A269",
+  Squad == "Pride" ~ "#61259E",
+  Squad == "Thorns" ~ "#99242B",
+  Squad == "Louisville" ~ "#C5B5F2",
+  Squad == "Wave" ~ "#FC1896",
+  Squad == "Reign" ~ "#2E407A",
+  Squad == "Royals" ~ "#FDB71A",
+  Squad == "Spirit" ~ "#000000",
+  Squad == "Legacy" ~ "#36E882",
+  Squad == "Summit" ~ "#20604E"
+  
+))
+
+color_mapping_ds <- data.frame(Squad = c("Angel City","Bay FC","Chicago Stars","Dash","Current","Gotham FC","Courage","Pride","Thorns","Louisville","Wave" ,"Reign","Royals","Spirit","Legacy","Summit"), team_color = c("#F1B1A5","#FF5049","#3AB5E8","#FF6900","#62CBC9","#A9F1FD","#B4A269","#61259E","#99242B","#C5B5F2","#FC1896","#2E407A","#FDB71A","#000000","#36E882","#20604E"))
+
+color_mapping <- set_names(color_mapping_ds$team_color, color_mapping_ds$Squad)
+
+
+```
+
+**Visual 1: Number of players departing by team, including mid-season transactions and short-term players**
+
+```{r, echo = FALSE}
+
+depart_mid_ds <- existing %>% filter(left_team==1) %>% group_by(Squad, team_color) %>% summarise(n = n()) %>% ungroup()
+
+depart_mid <- depart_mid_ds %>% ggplot(aes(x = reorder(Squad, n), y = n, fill = Squad, text = paste0("Team: ", Squad, "<br>Number of players departing: ", n))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of players departing by team", subtitle = "Including mid-2025 transactions and short-term players") + xlab("Team") + ylab("Number of players leaving") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+depart_mid %>% ggplotly(tooltip = c("text")) %>% layout(title = list(text = paste0("Number of players departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions and short-term players")))
+
+# ggsave("depart_mid.png", depart_mid)
+
+```
+
+
+**Visual 2: Number of players departing by team, including mid-season transactions but not short-term players**
+
+```{r, echo = FALSE}
+
+depart_mid_noshort_ds <- existing %>% filter(left_team==1 & short_term==0) %>% group_by(Squad, team_color) %>% summarise(n = n()) %>% ungroup()
+
+depart_mid_noshort <- depart_mid_noshort_ds %>% ggplot(aes(x = reorder(Squad, n), y = n, fill = Squad, text = paste0("Team: ", Squad, "<br>Number of players departing: ", n))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of players departing by team", subtitle = "Including mid-2025 transactions but not short-term players") + xlab("Team") + ylab("Number of players leaving") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+depart_mid_noshort %>% ggplotly(tooltip = c("text")) %>% layout(title = list(text = paste0("Number of players departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions but not short-term players")))
+
+# ggsave("depart_mid_noshort.png", depart_mid_noshort)
+
+```
+
+
+**Visual 3: Number of players departing by team, including neither mid-season transactions nor short-term players**
+
+```{r, echo = FALSE}
+
+depart_nonmid_noshort_ds <- existing %>% filter(left_team==1 & short_term==0 & is.na(effective_midseason)) %>% group_by(Squad, team_color) %>% summarise(n = n()) %>% ungroup()
+
+depart_nonmid_noshort <- depart_nonmid_noshort_ds %>% ggplot(aes(x = reorder(Squad, n), y = n, fill = Squad, text = paste0("Team: ", Squad, "<br>Number of players departing: ", n))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of players departing by team", subtitle = "Not including mid-2025 transactions or short-term players") + xlab("Team") + ylab("Number of players leaving") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+depart_nonmid_noshort %>% ggplotly(tooltip = c("text")) %>% layout(title = list(text = paste0("Number of players departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions or short-term players")))
+
+# ggsave("depart_nonmid_noshort.png", depart_nonmid_noshort)
+
+```
+
+
+
+**Visual 4: Number of players joining by team, including mid-season transactions and short-term players**
+
+```{r, echo = FALSE}
+
+join_mid_existing <- existing %>% filter(left_team==1) %>% group_by(Team_new) %>% summarise(n_exist = n()) %>% ungroup() %>% rename(Squad = Team_new)
+
+join_mid_new <- new %>% group_by(Squad) %>% summarise(n_new =n()) %>% ungroup()
+
+join_mid_ds <- join_mid_existing %>% full_join(join_mid_new, by = "Squad") %>% 
+  mutate(n_exist = ifelse(is.na(n_exist), 0, n_exist),
+         n_new = ifelse(is.na(n_new), 0, n_new),
+         n_total = n_exist+ n_new) %>% filter(!is.na(Squad))
+
+join_mid <- join_mid_ds %>% filter(!Squad %in% c("Legacy", "Summit")) %>% ggplot(aes(x = reorder(Squad, n_total), y = n_total, fill = Squad, text = paste0("Team: ", Squad, "<br>Number of new players: ", n_total))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of players joining by team", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+join_mid %>% ggplotly(tooltip = c("text")) %>% layout(title = list(text = paste0("Number of players joining by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("join_mid.png",  join_mid)
+
+
+```
+
+
+*I did not include expansion teams in this because it would mess up the scale and we know that they would be signing 22-26 players this offseason.
+
+**Visual 5: Number of players joining by team, not including mid-season transactions**
+
+```{r, echo = FALSE}
+
+join_nonmid_existing <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% group_by(Team_new) %>% summarise(n_exist = n()) %>% ungroup() %>% rename(Squad = Team_new)
+
+join_mid_new <- new %>% group_by(Squad) %>% summarise(n_new =n()) %>% ungroup()
+
+join_nonmid_ds <- join_nonmid_existing %>% full_join(join_mid_new, by = "Squad") %>% 
+  mutate(n_exist = ifelse(is.na(n_exist), 0, n_exist),
+         n_new = ifelse(is.na(n_new), 0, n_new),
+         n_total = n_exist+ n_new) %>% filter(!is.na(Squad))
+
+join_nonmid <- join_nonmid_ds %>% filter(!Squad %in% c("Legacy", "Summit")) %>% ggplot(aes(x = reorder(Squad, n_total), y = n_total, fill = Squad, text = paste0("Team: ", Squad, "<br>Number of new players: ", n_total))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of players joining by team", subtitle = "Not including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+join_nonmid %>% ggplotly(tooltip = c("text")) %>% layout(title = list(text = paste0("Number of players joining by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("join_nonmid.png",  join_nonmid)
+
+
+```
+
+*I did not include expansion teams in this because it would mess up the scale and we know that they would be signing 22-26 players this offseason.
+
+
+**Visual 6: New players by type of signing, including mid-season transactions**
+
+```{r, echo = FALSE}
+
+join_type_existing_mid <- existing %>% filter(!is.na(Team_new)) %>% select(Player, Team_new, position_new, position_broad, position_broader, effective_midseason, short_term, team_color) %>% mutate(Type="Other NWSL team") %>% rename(Squad = Team_new)
+
+join_type_mid_ds <- join_type_existing_mid %>% rbind(new) %>% rename(Position = position_broader) %>% mutate(Type = factor(Type, levels = c("Other NWSL team", "Other league", "College", "U18")))
+
+
+join_type_mid <- join_type_mid_ds %>% ggplot(aes(x = Type, fill = Type)) + geom_bar() + theme_minimal() + labs(title = "Number of players joining by type of player", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_blank()) + facet_wrap(~Squad)
+
+join_type_mid %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number of players joining by type of player",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("join_type_mid.png",  join_type_mid)
+
+
+```
+
+
+**Visual 7: New players by type of signing, including mid-season transactions, not including expansion teams**
+
+I made this version so that you could see your team's activity compared to other similar teams without having to squint due to expansion teams' activity affecting the scale.
+
+```{r, echo = FALSE}
+
+join_type_existing_mid <- existing %>% filter(!is.na(Team_new)) %>% select(Player, Team_new, position_new, position_broad, position_broader, effective_midseason, short_term, team_color) %>% mutate(Type="Other NWSL team") %>% rename(Squad = Team_new)
+
+join_type_mid_ds <- join_type_existing_mid %>% rbind(new) %>% rename(Position = position_broader)  %>% mutate(Type = factor(Type, levels = c("Other NWSL team", "Other league", "College", "U18")))
+
+
+join_type_mid_noexp <- join_type_mid_ds %>% filter(!Squad %in% c("Legacy", "Summit")) %>% ggplot(aes(x = Type, fill = Type)) + geom_bar() + theme_minimal() + labs(title = "Number of players joining by type of player", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_blank()) + facet_wrap(~Squad)
+
+join_type_mid_noexp %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number of players joining by type of player",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("join_type_mid_noexp.png",  join_type_mid_noexp)
+
+
+```
+
+
+**Visual 8: New players by type of signing, not including mid-season transactions**
+
+
+```{r, echo = FALSE}
+
+join_type_existing_nonmid <- existing %>% filter(!is.na(Team_new) & is.na(effective_midseason)) %>% select(Player, Team_new, position_new, position_broad, position_broader, effective_midseason, short_term, team_color) %>% mutate(Type="Other NWSL team") %>% rename(Squad = Team_new)
+
+join_type_nonmid_ds <- join_type_existing_nonmid %>% rbind(new) %>% rename(Position = position_broader) %>% mutate(Type = factor(Type, levels = c("Other NWSL team", "Other league", "College", "U18")))
+
+
+join_type_nonmid <- join_type_nonmid_ds %>% ggplot(aes(x = Type, fill = Type)) + geom_bar() + theme_minimal() + labs(title = "Number of players joining by type of player", subtitle = "Not including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_blank()) + facet_wrap(~Squad)
+
+join_type_nonmid %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number of players joining by type of player",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("join_type_nonmid.png",  join_type_nonmid)
+
+
+```
+
+
+**Visual 9: New players by type of signing, not including mid-season transactions, not including expansion teams**
+
+I made this version so that you could see your team's activity compared to other similar teams without having to squint due to expansion teams' activity affecting the scale.
+
+```{r, echo = FALSE}
+
+join_type_existing_nonmid <- existing %>% filter(!is.na(Team_new) & is.na(effective_midseason)) %>% select(Player, Team_new, position_new, position_broad, position_broader, effective_midseason, short_term, team_color) %>% mutate(Type="Other NWSL team") %>% rename(Squad = Team_new)
+
+join_type_nonmid_ds <- join_type_existing_nonmid %>% rbind(new) %>% rename(Position = position_broader)  %>% mutate(Type = factor(Type, levels = c("Other NWSL team", "Other league", "College", "U18")))
+
+
+join_type_nonmid_noexp <- join_type_nonmid_ds %>% filter(!Squad %in% c("Legacy", "Summit")) %>% ggplot(aes(x = Type, fill = Type)) + geom_bar() + theme_minimal() + labs(title = "Number of players joining by type of player", subtitle = "Not including mid-2025 transactions") + xlab("Team") + ylab("Number of players joining") + theme(axis.text.x = element_blank()) + facet_wrap(~Squad)
+
+join_type_nonmid_noexp %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number of players joining by type of player",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("join_type_nonmid_noexp.png",  join_type_nonmid_noexp)
+
+
+```
+
+**Visual 10: Players in and out by position, including mid-season transactions**
+
+```{r, echo = FALSE}
+
+in_mid_existing <- existing %>% filter(left_team==1) %>% group_by(Team_new, position_broader) %>% summarise(n_in = n()) %>% ungroup() %>% rename(Squad = Team_new)
+
+in_mid_new <- new %>% group_by(Squad, position_broader) %>% summarise(n_in = n()) %>% ungroup()
+
+in_mid_ds <- in_mid_existing %>% full_join(in_mid_new, by = c("Squad", "position_broader")) %>% mutate(n_in.x = ifelse(is.na(n_in.x), 0, n_in.x), n_in.y = ifelse(is.na(n_in.y), 0, n_in.y), n_in = n_in.x + n_in.y)
+
+out_mid_ds <- existing %>% filter(left_team==1) %>% group_by(Squad, position_broader) %>% summarise(n_out = n()) %>% ungroup()
+
+in_out_mid_ds <- in_mid_ds %>% full_join(out_mid_ds, by = c("Squad", "position_broader")) %>% filter(!is.na(Squad)) %>% mutate(across(everything(), replace_na, 0)) %>% rename(Position = position_broader, In = n_in, Out = n_out) %>% select(-c(n_in.x, n_in.y)) %>% pivot_longer(cols = c(In, Out)) %>% rename(`In or Out` = name, `Number of Players` = value)
+
+in_out_mid <- in_out_mid_ds %>% ggplot(aes(x = Position, y = `Number of Players`, fill = `In or Out`)) + geom_bar(stat = "identity", position = "stack") + theme_minimal() + labs(title = "Number of players joining and leaving by position", subtitle = "Including mid-2025 transactions") + xlab("Position") + ylab("Number of players") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + facet_wrap(~Squad) + scale_fill_manual(values = c("In" = "palegreen3", "Out" = "lightcoral"))
+
+in_out_mid %>% ggplotly(tooltip = c("x", "y", "fill")) %>% layout(title = list(text = paste0("Number of players joining and leaving by position",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("in_out_mid.png",  in_out_mid)
+
+
+```
+
+
+**Visual 11: Players in and out by position, not including mid-season transactions**
+
+```{r, echo = FALSE}
+
+in_nonmid_existing <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% group_by(Team_new, position_broader) %>% summarise(n_in = n()) %>% ungroup() %>% rename(Squad = Team_new)
+
+in_nonmid_new <- new %>% group_by(Squad, position_broader) %>% summarise(n_in = n()) %>% ungroup()
+
+in_nonmid_ds <- in_nonmid_existing %>% full_join(in_nonmid_new, by = c("Squad", "position_broader")) %>% mutate(n_in.x = ifelse(is.na(n_in.x), 0, n_in.x), n_in.y = ifelse(is.na(n_in.y), 0, n_in.y), n_in = n_in.x + n_in.y)
+
+out_nonmid_ds <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% group_by(Squad, position_broader) %>% summarise(n_out = n()) %>% ungroup()
+
+in_out_nonmid_ds <- in_nonmid_ds %>% full_join(out_nonmid_ds, by = c("Squad", "position_broader")) %>% filter(!is.na(Squad)) %>% mutate(across(everything(), replace_na, 0)) %>% rename(Position = position_broader, In = n_in, Out = n_out) %>% select(-c(n_in.x, n_in.y)) %>% pivot_longer(cols = c(In, Out)) %>% rename(`In or Out` = name, `Number of Players` = value)
+
+in_out_nonmid <- in_out_nonmid_ds %>% ggplot(aes(x = Position, y = `Number of Players`, fill = `In or Out`)) + geom_bar(stat = "identity", position = "stack") + theme_minimal() + labs(title = "Number of players joining and leaving by position", subtitle = "Not including mid-2025 transactions") + xlab("Position") + ylab("Number of players") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + facet_wrap(~Squad) + scale_fill_manual(values = c("In" = "palegreen3", "Out" = "lightcoral"))
+
+in_out_nonmid %>% ggplotly(tooltip = c("x", "y", "fill")) %>% layout(title = list(text = paste0("Number of players joining and leaving by position",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("in_out_nonmid.png",  in_out_nonmid)
+
+
+```
+
+**Visual 12: Number and percent of teams' 2025 goals scored by players leaving, including mid-season transactions**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(total_goals = sum(Gls, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+leave_mid_ds <- existing %>% filter(left_team==1) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Squad) %>% mutate(n_goals = sum(Gls, na.rm = T)) %>% ungroup() %>% select(Squad, n_goals, total_goals) %>% distinct() %>% filter(!is.na(total_goals)) %>% mutate(pct_goals = n_goals/total_goals*100)
+
+leave_mid_gls <- leave_mid_ds %>% ggplot(aes(x = n_goals, y = pct_goals, color = Squad)) + geom_point(size = 3, position = "jitter") + theme_minimal() + scale_color_manual(values = color_mapping) + labs(title = "Number and percent of 2025 goals departing by team", subtitle = "Including mid-2025 transactions") + xlab("Number of goals departing") + ylab("Percent of team's goals departing")
+
+leave_mid_gls %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number and percent of 2025 goals departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("leave_mid_gls.png",  leave_mid_gls)
+
+
+```
+
+Chicago's really going to miss Ludmila.
+
+**Visual 13: Number and percent of teams' 2025 goals scored by players leaving, not including mid-season transactions**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(total_goals = sum(Gls, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+leave_nonmid_ds <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Squad) %>% mutate(n_goals = sum(Gls, na.rm = T)) %>% ungroup() %>% select(Squad, n_goals, total_goals) %>% distinct() %>% filter(!is.na(total_goals)) %>% mutate(pct_goals = n_goals/total_goals*100)
+
+leave_nonmid_gls <- leave_nonmid_ds %>% ggplot(aes(x = n_goals, y = pct_goals, color = Squad)) + geom_point(size = 3, position = "jitter") + theme_minimal() + scale_color_manual(values = color_mapping) + labs(title = "Number and percent of 2025 goals departing by team", subtitle = "Not including mid-2025 transactions") + xlab("Number of goals departing") + ylab("Percent of team's goals departing")
+
+leave_nonmid_gls %>% ggplotly(tooltip = c("x", "y", "color")) %>% layout(title = list(text = paste0("Number and percent of 2025 goals departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("leave_nonmid_gls.png",  leave_nonmid_gls)
+
+
+```
+
+
+**Visual 14: Number of teams' 2025 minutes played by players leaving, including mid-season transactions**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(Min = as.numeric(gsub(",", "", Min)), total_mins = sum(Min, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+leave_mid_mins_ds <- existing %>% filter(left_team==1) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Squad) %>% mutate(n_mins = sum(Min, na.rm = T)) %>% ungroup() %>% select(Squad, n_mins, total_mins) %>% distinct() %>% filter(!is.na(total_mins)) %>% mutate(pct_mins = n_mins/total_mins*100)
+
+leave_mid_mins <- leave_mid_mins_ds %>% ggplot(aes(x = reorder(Squad, n_mins), y = n_mins, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of 2025 minutes departing by team", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of minutes departing") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+leave_mid_mins %>% ggplotly(tooltip = c("text", "y")) %>% layout(title = list(text = paste0("Number of 2025 minutes departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("leave_mid_mins.png",  leave_mid_mins)
+
+
+```
+
+
+**Visual 15: Number of teams' 2025 minutes played by players leaving, not including mid-season transactions**
+
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(Min = as.numeric(gsub(",", "", Min)), total_mins = sum(Min, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+leave_nonmid_mins_ds <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Squad) %>% mutate(n_mins = sum(Min, na.rm = T)) %>% ungroup() %>% select(Squad, n_mins, total_mins) %>% distinct() %>% filter(!is.na(total_mins)) %>% mutate(pct_mins = n_mins/total_mins*100)
+
+leave_nonmid_mins <- leave_nonmid_mins_ds %>% ggplot(aes(x = reorder(Squad, n_mins), y = n_mins, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of 2025 minutes departing by team", subtitle = "Not including mid-2025 transactions") + xlab("Team") + ylab("Number of minutes departing") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+leave_nonmid_mins %>% ggplotly(tooltip = c("text", "y")) %>% layout(title = list(text = paste0("Number of 2025 minutes departing by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("leave_nonmid_mins.png",  leave_nonmid_mins)
+
+```
+
+**Visual 16: Number of 2025 minutes played by players starting 2026 on SEI or maternity leave**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(Min = as.numeric(gsub(",", "", Min)), total_mins = sum(Min, na.rm = T)) %>% ungroup()
+
+
+# create a ds that is number of mins by sei/ml
+sei_mins_nomove <- existing %>% filter((sei_start==1 | mat_leave==1) & left_team==0) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Squad) %>% mutate(n_mins = sum(Min, na.rm = T)) %>% ungroup() %>% select(Squad, n_mins, total_mins) %>% distinct()
+
+sei_mins_move <- existing %>% filter(!is.na(Team_new) & (sei_start==1 | mat_leave==1)) %>% left_join(goals_ds, by = c("Team_new" = "Squad", "Player" = "Player")) %>% group_by(Team_new) %>% mutate(n_mins = sum(Min, na.rm = T)) %>% ungroup() %>% select(Team_new, n_mins, total_mins) %>% distinct() %>% rename(Squad = Team_new)
+
+sei_mins_ds <- sei_mins_nomove %>% rbind(sei_mins_move) %>% filter(!is.na(total_mins)) %>% mutate(pct_mins = n_mins/total_mins*100)
+
+sei_mins <- sei_mins_ds %>% ggplot(aes(x = reorder(Squad, n_mins), y = n_mins, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of 2025 minutes starting 2026 on SEI/Maternity Leave") + xlab("Team") + ylab("Number of minutes not starting the season") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+sei_mins %>% ggplotly(tooltip = c("text", "y"))
+
+# ggsave("sei_mins.png",  sei_mins)
+
+
+
+```
+
+
+**Visual 17: Number of NWSL goals joining each team, including mid-season transactions**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(total_goals = sum(Gls, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+newgoals_mid_ds <- existing %>% filter(left_team==1) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Team_new) %>% mutate(n_goals = sum(Gls, na.rm = T)) %>% ungroup() %>% select(Team_new, n_goals) %>% distinct() %>% rename(Squad = Team_new) %>% filter(!is.na(Squad))
+
+newgoals_mid <- newgoals_mid_ds %>% ggplot(aes(x = reorder(Squad, n_goals), y = n_goals, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of 2025 goals joining by team", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of goals scored by new players") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+newgoals_mid %>% ggplotly(tooltip = c("text", "y")) %>% layout(title = list(text = paste0("Number of 2025 goals joining by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+# ggsave("newgoals_mid.png",  newgoals_mid)
+
+
+
+```
+
+
+**Visual 18: Number of NWSL goals joining each team, not including mid-season transactions**
+
+```{r, echo = FALSE}
+
+goals_ds <- read.csv("nwsl25_goals.csv") %>% select(Player, Squad, Min, Gls) %>% mutate(Squad = case_when(
+  Squad == "Angel City FC" ~ "Angel City",
+  Squad == "Bay FC" ~ "Bay FC",
+  Squad == "Chicago Stars" ~ "Chicago Stars",
+  Squad == "NC Courage" ~ "Courage",
+  Squad == "Current" ~ "Current",
+  Squad == "Houston Dash" ~ "Dash",
+  Squad == "Gotham FC" ~ "Gotham FC",
+  Squad == "Racing Louisville" ~ "Louisville",
+  Squad == "Orlando Pride" ~ "Pride",
+  Squad == "Reign" ~ "Reign",
+  Squad == "Royals" ~ "Royals",
+  Squad == "Washington Spirit" ~ "Spirit",
+  Squad == "Portland Thorns" ~ "Thorns",
+  Squad == "SD Wave" ~ "Wave",
+)) %>% group_by(Squad) %>% mutate(total_goals = sum(Gls, na.rm = T)) %>% ungroup()
+
+# create a ds that is number of goals and percent of team's goals that are leaving
+newgoals_nonmid_ds <- existing %>% filter(left_team==1 & is.na(effective_midseason)) %>% left_join(goals_ds, by = c("Squad", "Player")) %>% group_by(Team_new) %>% mutate(n_goals = sum(Gls, na.rm = T)) %>% ungroup() %>% select(Team_new, n_goals) %>% distinct() %>% rename(Squad = Team_new) %>% filter(!is.na(Squad))
+
+newgoals_nonmid <- newgoals_nonmid_ds %>% ggplot(aes(x = reorder(Squad, n_goals), y = n_goals, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of 2025 goals joining by team", subtitle = "Not including mid-2025 transactions") + xlab("Team") + ylab("Number of goals scored by new players") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+newgoals_nonmid %>% ggplotly(tooltip = c("text", "y")) %>% layout(title = list(text = paste0("Number of 2025 goals joining by team",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Not including mid-2025 transactions")))
+
+# ggsave("newgoals_nonmid.png",  newgoals_nonmid)
+
+
+```
+
+Ludmila doing a lot of heavy lifting here.
+
+
+**Visual 19: Number of contract terminations by team**
+
+```{r, echo = FALSE}
+
+contterm_ds <- existing %>% filter(contract_terminated==1) %>% group_by(Squad) %>% summarise(n=n()) %>% ungroup() %>% add_row(Squad = "Angel City", n = 0) %>% add_row(Squad = "Courage", n = 0) %>% add_row(Squad = "Thorns", n = 0)
+
+contterm <- contterm_ds %>% ggplot(aes(x = reorder(Squad, n), y = n, fill = Squad, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity") + theme_minimal() + scale_fill_manual(values = color_mapping) + labs(title = "Number of contract terminations by team", subtitle = "Including mid-2025 transactions") + xlab("Team") + ylab("Number of contract terminations") + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+contterm %>% ggplotly(tooltip = c("text", "y")) %>% layout(title = list(text = paste0("Number of contract terminations",
+                                                                                     "<br>",
+                                                                                     "<sup>", 
+                                                                                     "Including mid-2025 transactions")))
+
+
+# ggsave("contterm.png",  contterm)
+
+```
+
+
+**Visual 20: Free agent status by team**
+
+```{r, echo = FALSE}
+
+fa_ds <- existing %>% filter(freeagent_2026==1) %>% 
+  mutate(
+    left_nwsl = as.numeric(left_nwsl),
+    fa_resigned = ifelse(re_signed==1, 1, 0),
+    fa_left = ifelse(left_team==1,1,0),
+    fa_unknown = ifelse(re_signed!=1 & left_team!=1, 1, 0),
+    fa_new_nwsl = ifelse(re_signed!=1 & joined_new_nwsl==1, 1, 0),
+    fa_left_nwsl = ifelse(re_signed!=1 & left_nwsl==1, 1, 0)
+  ) %>% group_by(Squad) %>% summarise(
+    `Total Free Agents` = n(),
+    `Free Agents Re-signed` = sum(fa_resigned, na.rm = T),
+    `Free Agents Who Left` = sum(fa_left, na.rm = T),
+    `Free Agents Whose Status is Unknown` = sum(fa_unknown, na.rm = T),
+    `Free Agents Who Joined a New NWSL Team` = sum(fa_new_nwsl, na.rm = T),
+    `Free Agents Who Left the NWSL` = sum(fa_left_nwsl, na.rm = T)
+  ) %>% ungroup() %>% pivot_longer(cols = c(`Total Free Agents`, `Free Agents Re-signed`, `Free Agents Who Left`, `Free Agents Whose Status is Unknown`, `Free Agents Who Joined a New NWSL Team`, `Free Agents Who Left the NWSL`)) %>% rename(`Free Agent Status` = name, `Number of Players` = value) %>% mutate(`Free Agent Status` = factor(`Free Agent Status`, levels = c("Total Free Agents", "Free Agents Re-signed", "Free Agents Who Left", "Free Agents Whose Status is Unknown", "Free Agents Who Joined a New NWSL Team", "Free Agents Who Left the NWSL")))
+
+fa_status <- fa_ds %>% ggplot(aes(x = `Free Agent Status`, y = `Number of Players`, fill = `Free Agent Status`, text = paste0("Team: ", Squad))) + geom_bar(stat = "identity", position = "dodge") + theme_minimal() + labs(title = "Free Agent Status by Team") + xlab("Free Agent Status") + ylab("Number of players") + theme(axis.text.x = element_blank()) + facet_wrap(~Squad) 
+
+
+fa_status %>% ggplotly(tooltip = c("x", "y", "text"))
+
+# ggsave("fa_status.png",  fa_status)
+
+
+```
+
+
+
+&nbsp;
+&nbsp;
+&nbsp;
+
+##### [Back to home](https://ajsportstat.github.io/nwsl)
+
